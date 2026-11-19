@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Numeric,
@@ -37,6 +39,8 @@ class BankAccount(TimestampMixin, Base):
     __tablename__ = "bank_accounts"
     __table_args__ = (
         CheckConstraint("overdraft_limit >= 0", name="nonnegative_overdraft_limit"),
+        CheckConstraint("daily_limit > 0", name="positive_daily_limit"),
+        CheckConstraint("monthly_limit > 0", name="positive_monthly_limit"),
         CheckConstraint(
             "current_balance >= -overdraft_limit", name="balance_within_overdraft"
         ),
@@ -45,7 +49,9 @@ class BankAccount(TimestampMixin, Base):
             name="currency_iso_code",
         ),
         CheckConstraint(
-            "status IN ('active', 'frozen', 'closed')", name="valid_status"
+            "status IN ('pending_approval', 'pending_activation', 'active', "
+            "'frozen', 'closed')",
+            name="valid_status",
         ),
         Index("ix_bank_accounts_customer_status", "customer_id", "status"),
     )
@@ -65,7 +71,18 @@ class BankAccount(TimestampMixin, Base):
     overdraft_limit: Mapped[Decimal] = mapped_column(
         Numeric(19, 4), nullable=False, default=Decimal("0")
     )
+    daily_limit: Mapped[Decimal] = mapped_column(
+        Numeric(19, 4), nullable=False, default=Decimal("10000")
+    )
+    monthly_limit: Mapped[Decimal] = mapped_column(
+        Numeric(19, 4), nullable=False, default=Decimal("100000")
+    )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     customer: Mapped[Customer] = relationship(back_populates="accounts")
     account_type: Mapped[AccountType] = relationship(back_populates="accounts")

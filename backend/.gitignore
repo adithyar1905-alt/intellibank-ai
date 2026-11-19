@@ -3,3 +3,5 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .migration_check.db
+private_uploads/
+private_models/
