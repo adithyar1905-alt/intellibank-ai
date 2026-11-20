@@ -10,6 +10,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 class Settings(BaseSettings):
     database_url: str | None = None
+    cors_allowed_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     jwt_secret_key: str | None = None
     jwt_issuer: str = "intellibank-api"
     jwt_audience: str = "intellibank-clients"

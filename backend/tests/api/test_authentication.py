@@ -88,6 +88,22 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text)
         return response.json()
 
+    def test_frontend_cors_preflight_allows_local_vite_origin(self) -> None:
+        response = self.client.options(
+            "/api/v1/auth/login",
+            headers={
+                "Origin": "http://127.0.0.1:5173",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.headers["access-control-allow-origin"],
+            "http://127.0.0.1:5173",
+        )
+
     def test_registration_login_and_swagger_oauth_flow(self) -> None:
         tokens = self.register()
         registration_response = self.client.post(

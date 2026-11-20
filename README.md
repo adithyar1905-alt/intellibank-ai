@@ -69,6 +69,28 @@ Authenticator-based MFA uses TOTP and stores its secret encrypted at rest. Keep
 the MFA encryption key stable and backed up; changing it prevents existing
 authenticator secrets from being decrypted.
 
+#### Importing demo login accounts
+
+The supplied `IntelliFlow_Bank_AI_Demo_Accounts_and_Permissions.xlsx` file can
+seed the existing PostgreSQL authentication tables. Configure `DATABASE_URL`,
+apply the migrations, install `backend/requirements.txt`, and run this one-time
+import from the `backend` directory:
+
+```powershell
+python -m scripts.import_demo_accounts "C:\Users\hi\Downloads\IntelliFlow_Bank_AI_Demo_Accounts_and_Permissions.xlsx"
+```
+
+The importer hashes passwords with Argon2 before storing them, does not print
+or persist the workbook authenticator codes, and leaves existing email
+accounts unchanged when run again. The workbook's `Bank Manager` role maps to
+the existing `Branch Manager` role. Its access descriptions are informational;
+the application's existing role checks remain authoritative. After import,
+use the email/password form in the frontend login screen against the configured
+FastAPI backend. These are demo credentials: use only in a local/demo database
+and change them before any shared or production deployment. Each user should
+enroll MFA through the authenticated setup flow rather than reuse workbook
+authenticator values.
+
 ### Customer management
 
 Customer-management endpoints are available under `/api/v1/customers`. Bank
@@ -193,4 +215,74 @@ Run the focused AI module tests and then the full backend suite from `backend`:
 ```powershell
 pytest tests/api/test_ai_monitoring.py tests/api/test_credit_scoring.py tests/api/test_banking_assistant.py -q
 pytest -q
+```
+
+## IntelliBank AI frontend
+
+The React/Vite administration interface lives in `frontend/`. It uses
+component-based pages, React Router, Lucide icons, Recharts, and a centralized
+Axios client. Run it from the repository root:
+
+```powershell
+Set-Location frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
+
+Set `VITE_API_BASE_URL` in `frontend/.env` to the backend API root, for example
+`http://localhost:8000/api/v1`. This value is public configuration; do not put
+database URLs, passwords, signing keys, or provider secrets in frontend
+variables. The interface opens in clearly labeled demo mode. Use the profile
+menu's **Connect to backend** action to sign in through `/auth/login`. Tokens
+are kept in browser local storage, attached as Bearer authorization headers,
+and removed after sign-out or an unauthorized response.
+
+The frontend integration follows routes mounted by `backend/app/main.py`:
+
+- Authentication and session profile: `/auth/login`, `/auth/logout`,
+  `/auth/me`, `/auth/roles`, and `/auth/mfa/*`.
+- Customer profiles, status, KYC document upload, and account history:
+  `/customers`.
+- Account search, opening, status transitions, balance, and statement:
+  `/accounts`.
+- Account-scoped transaction history, detail, receipt, and daily summary:
+  `/transactions`. Transaction creation is available in demo mode only; this
+  UI does not initiate real money movement.
+- Loan eligibility, applications, review, approval, rejection, and detail:
+  `/loans`.
+- Fraud alert queue and human review: `/fraud`.
+- Indicative, human-reviewed credit scoring: `/credit-scoring`.
+- AML cases and compliance summary: `/aml`.
+- Ownership-controlled read-only assistant: `/banking-assistant`.
+
+Analytics, report generation, notifications, and audit-log APIs are not
+currently mounted by the FastAPI application. Those frontend pages therefore
+use clearly labeled illustrative data or local exports and do not call
+invented endpoints. Payment screens are read-only and filter the transaction
+history API by UPI/NEFT/RTGS/IMPS rails. Role-aware navigation is a usability
+feature; the backend remains authoritative for access control.
+
+For local development, start FastAPI from `backend` after configuring
+`backend/.env` and applying database migrations:
+
+```powershell
+Set-Location backend
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Vite proxies `/api/*` to `http://127.0.0.1:8000` by default, avoiding browser
+CORS issues during development. Set `VITE_API_PROXY_TARGET` in
+`frontend/.env` if the backend listens elsewhere. For a separately hosted
+frontend/backend, set `VITE_API_BASE_URL` to the backend `/api/v1` URL and
+configure the backend's comma-separated `CORS_ALLOWED_ORIGINS` to the exact
+frontend origins. Both services and the configured PostgreSQL database must be
+running; the frontend cannot authenticate while the API or database is
+unavailable.
+
+Build and preview the frontend:
+
+```powershell
+npm run build
+npm run preview
 ```
